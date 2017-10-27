@@ -476,3 +476,120 @@ func TestString(t *testing.T) {
 		}
 	}
 }
+
+// Scan
+
+func BenchmarkIntScan(b *testing.B) {
+	var v Int
+	for i := 0; i < b.N; i++ {
+		v.Scan(123456)
+	}
+}
+
+func BenchmarkFloat64Scan(b *testing.B) {
+	var v Float64
+	for i := 0; i < b.N; i++ {
+		v.Scan(123.456)
+	}
+}
+
+func BenchmarkBoolScan(b *testing.B) {
+	var v Bool
+	for i := 0; i < b.N; i++ {
+		v.Scan(true)
+	}
+}
+
+func BenchmarkStringScan(b *testing.B) {
+	var v String
+	for i := 0; i < b.N; i++ {
+		v.Scan("value string")
+	}
+}
+
+func BenchmarkTimeScan(b *testing.B) {
+	var v Time
+	t := time.Now()
+	for i := 0; i < b.N; i++ {
+		v.Scan(t)
+	}
+}
+
+// MarshalJSON
+
+func BenchmarkIntMarshalJSON(b *testing.B) {
+	v := Int{123456, true}
+	for i := 0; i < b.N; i++ {
+		v.MarshalJSON()
+	}
+}
+
+func BenchmarkFloat64MarshalJSON(b *testing.B) {
+	v := Float64{123.456, true}
+	for i := 0; i < b.N; i++ {
+		v.MarshalJSON()
+	}
+}
+
+func BenchmarkBoolMarshalJSON(b *testing.B) {
+	v := Bool{true, true}
+	for i := 0; i < b.N; i++ {
+		v.MarshalJSON()
+	}
+}
+
+func BenchmarkStringMarshalJSON(b *testing.B) {
+	v := String{"value string", true}
+	for i := 0; i < b.N; i++ {
+		v.MarshalJSON()
+	}
+}
+
+func BenchmarkTimeMarshalJSON(b *testing.B) {
+	v := Time{time.Now(), true}
+	for i := 0; i < b.N; i++ {
+		v.MarshalJSON()
+	}
+}
+
+// UnmarshalJSON
+
+func BenchmarkIntUnmarshalJSON(b *testing.B) {
+	data := []byte("123456")
+	var v Int
+	for i := 0; i < b.N; i++ {
+		v.UnmarshalJSON(data)
+	}
+}
+
+func BenchmarkFloat64UnmarshalJSON(b *testing.B) {
+	data := []byte("123.456")
+	var v Float64
+	for i := 0; i < b.N; i++ {
+		v.UnmarshalJSON(data)
+	}
+}
+
+func BenchmarkBoolUnmarshalJSON(b *testing.B) {
+	data := []byte("true")
+	var v Bool
+	for i := 0; i < b.N; i++ {
+		v.UnmarshalJSON(data)
+	}
+}
+
+func BenchmarkStringUnmarshalJSON(b *testing.B) {
+	data := []byte(`"value string"`)
+	var v String
+	for i := 0; i < b.N; i++ {
+		v.UnmarshalJSON(data)
+	}
+}
+
+func BenchmarkTimeUnmarshalJSON(b *testing.B) {
+	data := []byte(`"2017-10-20T23:04:56.123456Z"`)
+	var v Time
+	for i := 0; i < b.N; i++ {
+		v.UnmarshalJSON(data)
+	}
+}
