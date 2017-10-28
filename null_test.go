@@ -71,12 +71,12 @@ func TestNew(t *testing.T) {
 
 func TestScan(t *testing.T) {
 	{
-		i := int(1)
+		i := int64(1)
 		n := new(Int)
 		if err := n.Scan(i); err != nil {
 			t.Error(err)
 		}
-		if n.Int != i {
+		if int64(n.Int) != i {
 			t.Error("Int Value: mismatch")
 		}
 		if !n.Valid {
@@ -482,14 +482,16 @@ func TestString(t *testing.T) {
 func BenchmarkIntScan(b *testing.B) {
 	var v Int
 	for i := 0; i < b.N; i++ {
-		v.Scan(123456)
+		if err := v.Scan(int64(123456)); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
 func BenchmarkFloat64Scan(b *testing.B) {
 	var v Float64
 	for i := 0; i < b.N; i++ {
-		v.Scan(123.456)
+		v.Scan(float64(123.456))
 	}
 }
 

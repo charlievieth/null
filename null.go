@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -42,20 +43,44 @@ func PtrInt(i *int) Int {
 	}
 }
 
-// Scan, scans a database value into Int i.  An error is returned if the value
-// overflows i.
+func convertInt64(value interface{}) (int64, error) {
+	switch v := value.(type) {
+	case int64:
+		return v, nil
+	case int:
+		return int64(v), nil
+	case int8:
+		return int64(v), nil
+	case int16:
+		return int64(v), nil
+	case int32:
+		return int64(v), nil
+
+	// match stdlib behavior
+	case string:
+		return strconv.ParseInt(v, 10, 64)
+	case []byte:
+		return strconv.ParseInt(string(v), 10, 64)
+	}
+	return -1, fmt.Errorf("converting driver.Value type %T to an int64: %v", value, value)
+}
+
 func (i *Int) Scan(value interface{}) error {
-	const MaxInt = int(^uint(0) >> 1)
-	var n sql.NullInt64
-	if err := n.Scan(value); err != nil {
+	const MaxInt = int64(int(^uint(0) >> 1))
+	if value == nil {
+		i.Int, i.Valid = 0, false
+		return nil
+	}
+	n, err := convertInt64(value)
+	if err != nil {
 		i.Int, i.Valid = 0, false
 		return err
 	}
-	if n.Int64 > int64(MaxInt) {
-		i.Int, i.Valid = 0, false
+	if n > MaxInt {
 		return errors.New("null: error int64 overflows int")
 	}
-	i.Int, i.Valid = int(n.Int64), n.Valid
+	i.Int = int(n)
+	i.Valid = true
 	return nil
 }
 
