@@ -2,6 +2,7 @@ package null
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"testing"
 	"time"
@@ -479,10 +480,30 @@ func TestString(t *testing.T) {
 
 // Scan
 
-func BenchmarkIntScan(b *testing.B) {
+func BenchmarkIntScan_Int64(b *testing.B) {
 	var v Int
 	for i := 0; i < b.N; i++ {
 		if err := v.Scan(int64(123456)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkIntScan_Bytes(b *testing.B) {
+	var s interface{} = []byte("123456")
+	var v Int
+	for i := 0; i < b.N; i++ {
+		if err := v.Scan(s); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkIntScan_Base(b *testing.B) {
+	var s interface{} = []byte("123456")
+	var v sql.NullInt64
+	for i := 0; i < b.N; i++ {
+		if err := v.Scan(s); err != nil {
 			b.Fatal(err)
 		}
 	}

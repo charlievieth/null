@@ -1,45 +1,56 @@
 package null
 
-import (
-	"errors"
-	"strconv"
-)
+import "strconv"
 
-// ErrRange indicates that a value is out of range for the target type.
-var ErrRange = errors.New("value out of range")
+func parseInt(s []byte, bitSize int) (int64, error) {
+	if bitSize == 0 {
+		bitSize = int(strconv.IntSize)
+	}
+	if len(s) == 0 {
+		return 0, &strconv.NumError{"ParseInt", string(s), strconv.ErrSyntax}
+	}
 
-// ErrSyntax indicates that a value does not have the right syntax for the target type.
-var ErrSyntax = errors.New("invalid syntax")
+	// Pick off leading sign.
+	s0 := s
+	neg := false
+	if s[0] == '+' {
+		s = s[1:]
+	} else if s[0] == '-' {
+		neg = true
+		s = s[1:]
+	}
 
-// A NumError records a failed conversion.
-type NumError struct {
-	Func string // the failing function (ParseBool, ParseInt, ParseUint, ParseFloat)
-	Num  string // the input
-	Err  error  // the reason the conversion failed (ErrRange, ErrSyntax)
+	// Convert unsigned and check range.
+	un, err := parseUint(s, bitSize)
+	if err != nil && err.(*strconv.NumError).Err != strconv.ErrRange {
+		err.(*strconv.NumError).Func = "ParseInt"
+		err.(*strconv.NumError).Num = string(s0)
+		return 0, err
+	}
+	cutoff := uint64(1 << uint(bitSize-1))
+	if !neg && un >= cutoff {
+		return int64(cutoff - 1), &strconv.NumError{"ParseInt", string(s0), strconv.ErrRange}
+	}
+	if neg && un > cutoff {
+		return -int64(cutoff), &strconv.NumError{"ParseInt", string(s0), strconv.ErrRange}
+	}
+	n := int64(un)
+	if neg {
+		n = -n
+	}
+
+	return n, nil
 }
 
-func (e *NumError) Error() string {
-	// TODO: Remove use of strconv
-	return "strconv." + e.Func + ": " + "parsing " + strconv.Quote(e.Num) + ": " + e.Err.Error()
-}
-
-const intSize = 32 << (^uint(0) >> 63)
-
-// IntSize is the size in bits of an int or uint value.
-const IntSize = intSize
-
-const maxUint64 = (1<<64 - 1)
-
-func ParseUint(s string, bitSize int) (uint64, error) {
-	const base = 10
-	const cutoff = maxUint64/10 + 1
+func parseUint(s []byte, bitSize int) (uint64, error) {
+	const maxUint64 = (1<<64 - 1)
 
 	if len(s) < 1 {
-		return 0, &NumError{"ParseUint", s, ErrSyntax}
+		return 0, &strconv.NumError{"ParseUint", string(s), strconv.ErrSyntax}
 	}
 
 	if bitSize == 0 {
-		bitSize = int(IntSize)
+		bitSize = int(strconv.IntSize)
 	}
 	maxVal := uint64(1<<uint(bitSize) - 1)
 
@@ -49,22 +60,22 @@ func ParseUint(s string, bitSize int) (uint64, error) {
 		v := uint64(s[i]) - '0'
 		if v > 9 {
 			n = 0
-			err = ErrSyntax
+			err = strconv.ErrSyntax
 			goto Error
 		}
-		if n >= cutoff {
-			// n*base overflows
+		if n >= maxUint64/10+1 {
+			// n*10 overflows
 			n = maxUint64
-			err = ErrRange
+			err = strconv.ErrRange
 			goto Error
 		}
-		n *= base
+		n *= 10
 
 		n1 := n + v
 		if n1 < n || n1 > maxVal {
 			// n+v overflows
 			n = maxUint64
-			err = ErrRange
+			err = strconv.ErrRange
 			goto Error
 		}
 		n = n1
@@ -73,61 +84,5 @@ func ParseUint(s string, bitSize int) (uint64, error) {
 	return n, nil
 
 Error:
-	return n, &NumError{"ParseUint", s, err}
+	return n, &strconv.NumError{"ParseUint", string(s), err}
 }
-
-/*
-func ParseUint(s string, bitSize int) (uint64, error) {
-	const base = 10
-	const cutoff = maxUint64/10 + 1
-
-	var i int
-	var n uint64
-	var maxVal uint64
-	var err error
-
-	if bitSize == 0 {
-		bitSize = int(IntSize)
-	}
-
-	if len(s) < 1 {
-		err = ErrSyntax
-		goto Error
-	}
-
-	maxVal = 1<<uint(bitSize) - 1
-
-	for ; i < len(s); i++ {
-		var v byte
-		d := s[i]
-		if '0' <= s[i] && s[i] <= '9' {
-			v = d - '0'
-		} else {
-			n = 0
-			err = ErrSyntax
-			goto Error
-		}
-		if n >= cutoff {
-			// n*base overflows
-			n = maxUint64
-			err = ErrRange
-			goto Error
-		}
-		n *= uint64(base)
-
-		n1 := n + uint64(v)
-		if n1 < n || n1 > maxVal {
-			// n+v overflows
-			n = maxUint64
-			err = ErrRange
-			goto Error
-		}
-		n = n1
-	}
-
-	return n, nil
-
-Error:
-	return n, &NumError{"ParseUint", s, err}
-}
-*/

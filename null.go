@@ -43,41 +43,81 @@ func PtrInt(i *int) Int {
 	}
 }
 
-func convertInt64(value interface{}) (int64, error) {
-	switch v := value.(type) {
-	case int64:
-		return v, nil
-	case int:
-		return int64(v), nil
-	case int8:
-		return int64(v), nil
-	case int16:
-		return int64(v), nil
-	case int32:
-		return int64(v), nil
+func convertInt(value interface{}, bitSize int) (int64, error) {
+	const maxInt64 = 1<<63 - 1
 
-	// match stdlib behavior
+	var n int64
+	var err error
+	cutoff := uint64(1 << uint(bitSize-1))
+
+	switch v := value.(type) {
+	// Likely/conformant cases
+	case int64:
+		n = v
 	case string:
-		return strconv.ParseInt(v, 10, 64)
+		n, err = strconv.ParseInt(v, 10, bitSize)
 	case []byte:
-		return strconv.ParseInt(string(v), 10, 64)
+		n, err = parseInt(v, bitSize)
+
+	// Accept other numeric types
+	case int:
+		n = int64(v)
+	case int8:
+		n = int64(v)
+	case int16:
+		n = int64(v)
+	case int32:
+		n = int64(v)
+	case uint8:
+		n = int64(v)
+	case uint16:
+		n = int64(v)
+	case uint32:
+		n = int64(v)
+	case uint:
+		if v <= maxInt64 {
+			n = int64(v)
+		} else {
+			n = int64(cutoff - 1)
+			err = strconv.ErrRange
+		}
+	case uint64:
+		if v <= maxInt64 {
+			n = int64(v)
+		} else {
+			n = int64(cutoff - 1)
+			err = strconv.ErrRange
+		}
+	default:
+		err = fmt.Errorf("unsupported Scan, storing driver.Value type %T into type int64: %v", value, value)
 	}
-	return -1, fmt.Errorf("converting driver.Value type %T to an int64: %v", value, value)
+
+	// TODO: Match sql.convertAssign error message
+	if err != nil {
+		// Special case for uint conversions
+		if err == strconv.ErrRange {
+			err = &strconv.NumError{"ParseInt", strconv.FormatInt(n, 10), strconv.ErrRange}
+		}
+		return n, err
+	}
+
+	if uint64(n) > cutoff {
+		n = int64(cutoff - 1)
+		err = &strconv.NumError{"ParseInt", strconv.FormatInt(n, 10), strconv.ErrRange}
+	}
+
+	return n, err
 }
 
 func (i *Int) Scan(value interface{}) error {
-	const MaxInt = int64(int(^uint(0) >> 1))
 	if value == nil {
 		i.Int, i.Valid = 0, false
 		return nil
 	}
-	n, err := convertInt64(value)
+	n, err := convertInt(value, strconv.IntSize)
 	if err != nil {
 		i.Int, i.Valid = 0, false
 		return err
-	}
-	if n > MaxInt {
-		return errors.New("null: error int64 overflows int")
 	}
 	i.Int = int(n)
 	i.Valid = true
