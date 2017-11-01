@@ -89,10 +89,11 @@ func convertInt(value interface{}, bitSize int) (int64, error) {
 			err = strconv.ErrRange
 		}
 	default:
-		err = fmt.Errorf("unsupported Scan, storing driver.Value type %T into type int64: %v", value, value)
+		err = fmt.Errorf("unsupported Scan, storing driver.Value type %T into type int64", value)
 	}
 
 	// TODO: Match sql.convertAssign error message
+	//
 	if err != nil {
 		// Special case for uint conversions
 		if err == strconv.ErrRange {
@@ -137,7 +138,7 @@ func (i Int) MarshalJSON() ([]byte, error) {
 	if !i.Valid {
 		return []byte("null"), nil
 	}
-	return []byte(strconv.Itoa(i.Int)), nil
+	return strconv.AppendInt([]byte{}, int64(i.Int), 10), nil
 }
 
 // MarshalJSON, unmarshals JSON data into Int i.
@@ -146,7 +147,10 @@ func (i *Int) UnmarshalJSON(data []byte) (err error) {
 		i.Int, i.Valid = 0, false
 		return nil
 	}
-	i.Int, err = strconv.Atoi(unquote(data))
+	n, err := parseInt(unquote(data), strconv.IntSize)
+	if err == nil {
+		i.Int = int(n)
+	}
 	i.Valid = (err == nil)
 	return err
 }
@@ -216,7 +220,7 @@ func (f *Float64) UnmarshalJSON(data []byte) (err error) {
 		f.Float64, f.Valid = 0, false
 		return nil
 	}
-	f.Float64, err = strconv.ParseFloat(unquote(data), 64)
+	f.Float64, err = strconv.ParseFloat(string(unquote(data)), 64)
 	f.Valid = (err == nil)
 	return err
 }
@@ -359,7 +363,8 @@ func (b *Bool) UnmarshalJSON(data []byte) (err error) {
 		b.Bool, b.Valid = false, false
 		return nil
 	}
-	switch s := unquote(data); s {
+	data = unquote(data)
+	switch s := string(data); s {
 	case "true":
 		b.Bool, b.Valid = true, true
 	case "false":
@@ -461,11 +466,11 @@ func null(data []byte) bool {
 	return bytes.Equal([]byte("null"), data)
 }
 
-// unquote, returns the unquoted string form of JSON value b, for use by Int,
-// Float64 and Bool.  For JSON string values use unmarshalString.
-func unquote(b []byte) string {
+// unquote, returns the form of JSON value b, for use by Int, Float64 and Bool.
+// For JSON string values use unmarshalString.
+func unquote(b []byte) []byte {
 	if len(b) < 2 || b[0] != '"' || b[len(b)-1] != '"' {
-		return string(b)
+		return b
 	}
-	return string(b[1 : len(b)-1])
+	return b[1 : len(b)-1]
 }

@@ -348,7 +348,7 @@ func TestUnmarshal(t *testing.T) {
 			t.Error(err)
 		}
 		if n.Int != i || !n.Valid {
-			t.Error("Int Unmarshal: failed")
+			t.Error("Int Unmarshal: failed", n.Int, i, n.Valid)
 		}
 		n = new(Int)
 		if err := n.UnmarshalJSON(null); err != nil {
