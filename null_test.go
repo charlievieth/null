@@ -4,9 +4,129 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"errors"
+	"math"
+	"strconv"
 	"testing"
 	"time"
 )
+
+const (
+	MaxUint = ^uint(0)
+	MaxInt  = int(MaxUint >> 1)
+)
+
+type convertIntTest struct {
+	in      interface{}
+	out     int64
+	bitSize int
+	err     error // TODO: use an error type
+}
+
+var convertIntTests = []convertIntTest{
+	// Valid
+	{0, 0, 0, nil},
+	{1, 1, 0, nil},
+	{-1, -1, 0, nil},
+
+	// Valid Types
+	{int8(1), 1, 0, nil},
+	{int16(1), 1, 0, nil},
+	{int32(1), 1, 0, nil},
+	{int64(1), 1, 0, nil},
+	{int(1), 1, 0, nil},
+	{uint8(1), 1, 0, nil},
+	{uint16(1), 1, 0, nil},
+	{uint32(1), 1, 0, nil},
+	{uint64(1), 1, 0, nil},
+	{uint(1), 1, 0, nil},
+
+	// Max/Min
+	{uint64(math.MaxInt8), math.MaxInt8, 8, nil},
+	{uint64(math.MaxInt16), math.MaxInt16, 16, nil},
+	{uint64(math.MaxInt32), math.MaxInt32, 32, nil},
+	{uint64(math.MaxInt64), math.MaxInt64, 64, nil},
+	{uint64(MaxInt), int64(MaxInt), 0, nil},
+
+	{math.MinInt8, math.MinInt8, 8, nil},
+	{math.MinInt16, math.MinInt16, 16, nil},
+	{math.MinInt32, math.MinInt32, 32, nil},
+	{math.MinInt64, math.MinInt64, 64, nil},
+
+	// Error
+	{uint64(math.MaxInt8) + 1, math.MaxInt8, 8, strconv.ErrRange},
+	{uint64(math.MaxInt16) + 1, math.MaxInt16, 16, strconv.ErrRange},
+	{uint64(math.MaxInt32) + 1, math.MaxInt32, 32, strconv.ErrRange},
+	{uint64(math.MaxInt64) + 1, math.MaxInt64, 64, strconv.ErrRange},
+	{uint64(MaxInt) + 1, int64(MaxInt), 0, strconv.ErrRange},
+
+	{math.MinInt8 - 1, math.MinInt8, 8, strconv.ErrRange},
+	{math.MinInt16 - 1, math.MinInt16, 16, strconv.ErrRange},
+	{math.MinInt32 - 1, math.MinInt32, 32, strconv.ErrRange},
+
+	{new(int), 0, 0, errors.New("fixme")},
+	{nil, 0, 0, errors.New("fixme")},
+	{true, 0, 0, errors.New("fixme")},
+	{"true", 0, 0, errors.New("fixme")},
+	{"0x12345", 0, 0, errors.New("fixme")},
+}
+
+func init() {
+	// Create string and []byte versions of numeric tests
+	for _, test := range convertIntTests {
+		var s string
+		switch n := test.in.(type) {
+		case int8:
+			s = strconv.FormatInt(int64(n), 10)
+		case int16:
+			s = strconv.FormatInt(int64(n), 10)
+		case int32:
+			s = strconv.FormatInt(int64(n), 10)
+		case int64:
+			s = strconv.FormatInt(int64(n), 10)
+		case int:
+			s = strconv.FormatInt(int64(n), 10)
+		case uint8:
+			s = strconv.FormatUint(uint64(n), 10)
+		case uint16:
+			s = strconv.FormatUint(uint64(n), 10)
+		case uint32:
+			s = strconv.FormatUint(uint64(n), 10)
+		case uint64:
+			s = strconv.FormatUint(uint64(n), 10)
+		case uint:
+			s = strconv.FormatUint(uint64(n), 10)
+		}
+		if s != "" {
+			convertIntTests = append(convertIntTests, convertIntTest{
+				s, test.out, test.bitSize, test.err,
+			})
+			convertIntTests = append(convertIntTests, convertIntTest{
+				[]byte(s), test.out, test.bitSize, test.err,
+			})
+		}
+	}
+}
+
+func TestConvertInt(t *testing.T) {
+	for _, test := range convertIntTests {
+		out, err := convertInt(test.in, test.bitSize)
+		ok := test.err == nil
+		if test.out != out || ok != (err == nil) {
+			t.Errorf("convertInt(%v - %d) = %v, %v want %v, %v",
+				test.in, test.bitSize, out, err, test.out, test.err)
+		}
+	}
+}
+
+// func TestConvertIntRange(t *testing.T) {
+// 	for i := int64(math.MinInt32); i <= math.MaxInt32; i++ {
+// 		n, err := convertInt(i, 16)
+// 		if n != i || err != nil {
+// 			t.Error("WTF:", i, n, err)
+// 		}
+// 	}
+// }
 
 func TestPtr(t *testing.T) {
 	if PtrInt(nil).Valid {

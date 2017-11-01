@@ -17,37 +17,17 @@ import (
 	"github.com/go-sql-driver/mysql"
 )
 
-// A Int is a nullable int that can be scanned into and from databases,
-// and marshaled into and from JSON.
-type Int struct {
-	Int   int
-	Valid bool
-}
-
-// NewInt, returns a new valid Int.
-func NewInt(i int) Int {
-	return Int{
-		Int:   i,
-		Valid: true,
-	}
-}
-
-// PtrInt, returns a new Int from a pointer.
-func PtrInt(i *int) Int {
-	if i == nil {
-		return Int{Valid: false}
-	}
-	return Int{
-		Int:   *i,
-		Valid: true,
-	}
-}
+var nullLiteral = []byte("null")
 
 func convertInt(value interface{}, bitSize int) (int64, error) {
 	const maxInt64 = 1<<63 - 1
 
 	var n int64
 	var err error
+
+	if bitSize == 0 {
+		bitSize = strconv.IntSize
+	}
 	cutoff := uint64(1 << uint(bitSize-1))
 
 	switch v := value.(type) {
@@ -101,12 +81,43 @@ func convertInt(value interface{}, bitSize int) (int64, error) {
 		return n, err
 	}
 
-	if uint64(n) > cutoff {
+	neg := n < 0
+	if !neg && uint64(n) >= cutoff {
 		n = int64(cutoff - 1)
+		err = &strconv.NumError{"ParseInt", strconv.FormatInt(n, 10), strconv.ErrRange}
+	}
+	if neg && uint64(-n) > cutoff {
+		n = -int64(cutoff)
 		err = &strconv.NumError{"ParseInt", strconv.FormatInt(n, 10), strconv.ErrRange}
 	}
 
 	return n, err
+}
+
+// A Int is a nullable int that can be scanned into and from databases,
+// and marshaled into and from JSON.
+type Int struct {
+	Int   int
+	Valid bool
+}
+
+// NewInt, returns a new valid Int.
+func NewInt(i int) Int {
+	return Int{
+		Int:   i,
+		Valid: true,
+	}
+}
+
+// PtrInt, returns a new Int from a pointer.
+func PtrInt(i *int) Int {
+	if i == nil {
+		return Int{Valid: false}
+	}
+	return Int{
+		Int:   *i,
+		Valid: true,
+	}
 }
 
 func (i *Int) Scan(value interface{}) error {
@@ -135,7 +146,7 @@ func (i Int) Value() (driver.Value, error) {
 // MarshalJSON, marshals Int i into JSON.
 func (i Int) MarshalJSON() ([]byte, error) {
 	if !i.Valid {
-		return []byte("null"), nil
+		return nullLiteral, nil
 	}
 	return []byte(strconv.Itoa(i.Int)), nil
 }
@@ -205,7 +216,7 @@ func (f Float64) Value() (driver.Value, error) {
 // MarshalJSON, marshals Float64 f into JSON.
 func (f Float64) MarshalJSON() ([]byte, error) {
 	if !f.Valid {
-		return []byte("null"), nil
+		return nullLiteral, nil
 	}
 	return []byte(strconv.FormatFloat(f.Float64, 'g', -1, 64)), nil
 }
@@ -275,7 +286,7 @@ func (s String) Value() (driver.Value, error) {
 // MarshalJSON, marshals String s into JSON.
 func (s String) MarshalJSON() ([]byte, error) {
 	if !s.Valid {
-		return []byte("null"), nil
+		return nullLiteral, nil
 	}
 	return marshalString(s.String)
 }
@@ -345,7 +356,7 @@ func (b Bool) Value() (driver.Value, error) {
 // MarshalJSON, marshals Bool b into JSON.
 func (b Bool) MarshalJSON() ([]byte, error) {
 	if !b.Valid {
-		return []byte("null"), nil
+		return nullLiteral, nil
 	}
 	if b.Bool {
 		return []byte(`"true"`), nil
@@ -425,7 +436,7 @@ func (t Time) Value() (driver.Value, error) {
 // string in RFC 3339 format, with sub-second precision added if present.
 func (t Time) MarshalJSON() ([]byte, error) {
 	if !t.Valid {
-		return []byte("null"), nil
+		return nullLiteral, nil
 	}
 	return t.Time.MarshalJSON()
 }
