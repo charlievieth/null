@@ -1,6 +1,9 @@
 package null
 
-import "strconv"
+import (
+	"fmt"
+	"strconv"
+)
 
 func parseInt(s []byte, bitSize int) (int64, error) {
 	if bitSize == 0 {
@@ -85,4 +88,154 @@ func parseUint(s []byte, bitSize int) (uint64, error) {
 
 Error:
 	return n, &strconv.NumError{"ParseUint", string(s), err}
+}
+
+func convertInt(value interface{}, bitSize int) (int64, error) {
+	const maxInt64 = 1<<63 - 1
+
+	var n int64
+	var err error
+
+	if bitSize == 0 {
+		bitSize = strconv.IntSize
+	}
+	cutoff := uint64(1 << uint(bitSize-1))
+
+	switch v := value.(type) {
+	// Conformant types
+	case int64:
+		n = v
+	case string:
+		n, err = strconv.ParseInt(v, 10, bitSize)
+	case []byte:
+		n, err = parseInt(v, bitSize)
+
+	// Accept other numeric types
+	case int:
+		n = int64(v)
+	case int8:
+		n = int64(v)
+	case int16:
+		n = int64(v)
+	case int32:
+		n = int64(v)
+	case uint8:
+		n = int64(v)
+	case uint16:
+		n = int64(v)
+	case uint32:
+		n = int64(v)
+	case uint:
+		if v <= maxInt64 {
+			n = int64(v)
+		} else {
+			n = int64(cutoff - 1)
+			err = strconv.ErrRange
+		}
+	case uint64:
+		if v <= maxInt64 {
+			n = int64(v)
+		} else {
+			n = int64(cutoff - 1)
+			err = strconv.ErrRange
+		}
+	default:
+		err = fmt.Errorf("unsupported Scan, storing driver.Value type %T into type int64", value)
+	}
+
+	// TODO: Match sql.convertAssign error message
+	//
+	if err != nil {
+		// Special case for uint conversions
+		if err == strconv.ErrRange {
+			err = &strconv.NumError{"ParseInt", strconv.FormatInt(n, 10), strconv.ErrRange}
+		}
+		return n, err
+	}
+
+	if n >= 0 && uint64(n) >= cutoff {
+		n = int64(cutoff - 1)
+		err = &strconv.NumError{"ParseInt", strconv.FormatInt(n, 10), strconv.ErrRange}
+	}
+	if n < 0 && uint64(-n) > cutoff {
+		n = -int64(cutoff)
+		err = &strconv.NumError{"ParseInt", strconv.FormatInt(n, 10), strconv.ErrRange}
+	}
+
+	return n, err
+}
+
+func convertUint(value interface{}, bitSize int) (uint64, error) {
+	const maxUint64 = (1<<64 - 1)
+
+	var n uint64
+	var err error
+
+	if bitSize == 0 {
+		bitSize = strconv.IntSize
+	}
+	cutoff := uint64(1<<uint(bitSize) - 1)
+
+	switch v := value.(type) {
+	// Conformant types
+	case int64:
+		if v < 0 {
+			goto ErrOverflow
+		}
+		n = uint64(v)
+	case string:
+		n, err = strconv.ParseUint(v, 10, bitSize)
+	case []byte:
+		n, err = parseUint(v, bitSize)
+
+	// Accept other numeric types
+	case uint:
+		n = uint64(v)
+	case uint8:
+		n = uint64(v)
+	case uint16:
+		n = uint64(v)
+	case uint32:
+		n = uint64(v)
+	case uint64:
+		n = v
+	case int:
+		if v < 0 {
+			goto ErrOverflow
+		}
+		n = uint64(v)
+	case int8:
+		if v < 0 {
+			goto ErrOverflow
+		}
+		n = uint64(v)
+	case int16:
+		if v < 0 {
+			goto ErrOverflow
+		}
+		n = uint64(v)
+	case int32:
+		if v < 0 {
+			goto ErrOverflow
+		}
+		n = uint64(v)
+	default:
+		err = fmt.Errorf("unsupported Scan, storing driver.Value type %T into type int64", value)
+	}
+
+	// TODO: Match sql.convertAssign error message
+	//
+	if err != nil {
+		// Special case for uint conversions
+		if err == strconv.ErrRange {
+			err = &strconv.NumError{"ParseInt", strconv.FormatUint(n, 10), strconv.ErrRange}
+		}
+	} else if n > cutoff {
+		n = maxUint64
+		err = &strconv.NumError{"ParseInt", strconv.FormatUint(n, 10), strconv.ErrRange}
+	}
+	return n, err
+
+ErrOverflow:
+	return 0, &strconv.NumError{"ParseInt", strconv.FormatUint(n, 10), strconv.ErrRange}
 }
