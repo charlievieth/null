@@ -686,6 +686,44 @@ func TestString(t *testing.T) {
 	}
 }
 
+// Numeric Conversions
+
+func BenchmarkConvertInt_Int64(b *testing.B) {
+	const v int64 = 12345678901234
+	for i := 0; i < b.N; i++ {
+		if _, err := convertInt(v, 64); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkConvertInt_String(b *testing.B) {
+	const v = "12345678901234"
+	for i := 0; i < b.N; i++ {
+		if _, err := convertInt(v, 64); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkConvertUint_Int64(b *testing.B) {
+	const v int64 = 12345678901234
+	for i := 0; i < b.N; i++ {
+		if _, err := convertUint(v, 64); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkConvertUint_String(b *testing.B) {
+	const v = "12345678901234"
+	for i := 0; i < b.N; i++ {
+		if _, err := convertUint(v, 64); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 // Scan
 
 func BenchmarkIntScan_Int64(b *testing.B) {

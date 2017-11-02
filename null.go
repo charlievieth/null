@@ -166,7 +166,6 @@ func convertUint(value interface{}, bitSize int) (uint64, error) {
 	return n, err
 
 ErrOverflow:
-
 	return 0, &strconv.NumError{"ParseInt", strconv.FormatUint(n, 10), strconv.ErrRange}
 }
 
