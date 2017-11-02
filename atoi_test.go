@@ -2,13 +2,26 @@ package null
 
 import (
 	"errors"
-	"math"
 	"reflect"
 	"strconv"
 	"testing"
 )
 
+// Integer limit values.
 const (
+	MaxInt8   = 1<<7 - 1
+	MinInt8   = -1 << 7
+	MaxInt16  = 1<<15 - 1
+	MinInt16  = -1 << 15
+	MaxInt32  = 1<<31 - 1
+	MinInt32  = -1 << 31
+	MaxInt64  = 1<<63 - 1
+	MinInt64  = -1 << 63
+	MaxUint8  = 1<<8 - 1
+	MaxUint16 = 1<<16 - 1
+	MaxUint32 = 1<<32 - 1
+	MaxUint64 = 1<<64 - 1
+
 	MaxUint = ^uint(0)
 	MaxInt  = int(MaxUint >> 1)
 )
@@ -131,38 +144,38 @@ var convertIntTests = []convertIntTest{
 
 	// Limits
 	{int64(MaxInt), int64(MaxInt), 0, nil},
-	{int8(math.MaxInt8), math.MaxInt8, 8, nil},
-	{int16(math.MaxInt16), math.MaxInt16, 16, nil},
-	{int32(math.MaxInt32), math.MaxInt32, 32, nil},
-	{int64(math.MaxInt64), int64(math.MaxInt64), 64, nil},
+	{int8(MaxInt8), MaxInt8, 8, nil},
+	{int16(MaxInt16), MaxInt16, 16, nil},
+	{int32(MaxInt32), MaxInt32, 32, nil},
+	{int64(MaxInt64), int64(MaxInt64), 64, nil},
 
-	{int8(math.MinInt8), math.MinInt8, 8, nil},
-	{int16(math.MinInt16), math.MinInt16, 16, nil},
-	{int32(math.MinInt32), math.MinInt32, 32, nil},
-	{int64(math.MinInt64), int64(math.MinInt64), 64, nil},
+	{int8(MinInt8), MinInt8, 8, nil},
+	{int16(MinInt16), MinInt16, 16, nil},
+	{int32(MinInt32), MinInt32, 32, nil},
+	{int64(MinInt64), int64(MinInt64), 64, nil},
 
 	// Make sure 64-bit values are handled correctly
-	{int64(math.MaxInt64), int64(math.MaxInt64), 64, nil},
-	{int64(math.MinInt64), int64(math.MinInt64), 64, nil},
+	{int64(MaxInt64), int64(MaxInt64), 64, nil},
+	{int64(MinInt64), int64(MinInt64), 64, nil},
 
 	// Zero base (target int size)
-	{int64(math.MaxInt8), math.MaxInt8, 0, nil},
-	{int64(math.MaxInt16), math.MaxInt16, 0, nil},
-	{int64(math.MaxInt32), math.MaxInt32, 0, nil},
+	{int64(MaxInt8), MaxInt8, 0, nil},
+	{int64(MaxInt16), MaxInt16, 0, nil},
+	{int64(MaxInt32), MaxInt32, 0, nil},
 
 	// Error
-	{uint64(math.MaxInt8) + 1, math.MaxInt8, 8, strconv.ErrRange},
-	{uint64(math.MaxInt16) + 1, math.MaxInt16, 16, strconv.ErrRange},
-	{uint64(math.MaxInt32) + 1, math.MaxInt32, 32, strconv.ErrRange},
-	{uint64(math.MaxInt64) + 1, int64(math.MaxInt64), 64, strconv.ErrRange},
+	{uint64(MaxInt8) + 1, MaxInt8, 8, strconv.ErrRange},
+	{uint64(MaxInt16) + 1, MaxInt16, 16, strconv.ErrRange},
+	{uint64(MaxInt32) + 1, MaxInt32, 32, strconv.ErrRange},
+	{uint64(MaxInt64) + 1, int64(MaxInt64), 64, strconv.ErrRange},
 	{uint64(MaxInt) + 1, int64(MaxInt), 0, strconv.ErrRange},
 
-	{math.MinInt8 - 1, math.MinInt8, 8, strconv.ErrRange},
-	{math.MinInt16 - 1, math.MinInt16, 16, strconv.ErrRange},
-	{int64(math.MinInt32 - 1), math.MinInt32, 32, strconv.ErrRange},
+	{MinInt8 - 1, MinInt8, 8, strconv.ErrRange},
+	{MinInt16 - 1, MinInt16, 16, strconv.ErrRange},
+	{int64(MinInt32 - 1), MinInt32, 32, strconv.ErrRange},
 
-	{"9223372036854775809", math.MaxInt64, 0, strconv.ErrRange},
-	{"-9223372036854775809", math.MinInt64, 0, strconv.ErrRange},
+	{"9223372036854775809", MaxInt64, 0, strconv.ErrRange},
+	{"-9223372036854775809", MinInt64, 0, strconv.ErrRange},
 
 	{new(int), 0, 0, errors.New("fixme")},
 	{nil, 0, 0, errors.New("fixme")},
@@ -197,32 +210,32 @@ var convertUintTests = []convertUintTest{
 
 	// Limits
 	{uint64(MaxInt), uint64(MaxInt), 0, nil},
-	{uint8(math.MaxUint8), math.MaxUint8, 8, nil},
-	{uint16(math.MaxUint16), math.MaxUint16, 16, nil},
-	{uint32(math.MaxUint32), math.MaxUint32, 32, nil},
-	{uint64(math.MaxUint64), math.MaxUint64, 64, nil},
+	{uint8(MaxUint8), MaxUint8, 8, nil},
+	{uint16(MaxUint16), MaxUint16, 16, nil},
+	{uint32(MaxUint32), MaxUint32, 32, nil},
+	{uint64(MaxUint64), MaxUint64, 64, nil},
 
 	// Zero base
 	{uint64(MaxUint), uint64(MaxUint), 0, nil},
-	{uint8(math.MaxUint8), math.MaxUint8, 0, nil},
-	{uint16(math.MaxUint16), math.MaxUint16, 0, nil},
-	{uint32(math.MaxUint32), math.MaxUint32, 0, nil},
+	{uint8(MaxUint8), MaxUint8, 0, nil},
+	{uint16(MaxUint16), MaxUint16, 0, nil},
+	{uint32(MaxUint32), MaxUint32, 0, nil},
 
 	// 64-bit
-	{uint64(math.MaxInt64), math.MaxInt64, 64, nil},
+	{uint64(MaxInt64), MaxInt64, 64, nil},
 
 	// Error cases
 
-	{uint64(math.MaxUint8) + 1, math.MaxUint64, 8, strconv.ErrRange},
-	{uint64(math.MaxUint16) + 1, math.MaxUint64, 16, strconv.ErrRange},
-	{uint64(math.MaxUint32) + 1, math.MaxUint64, 32, strconv.ErrRange},
+	{uint64(MaxUint8) + 1, MaxUint64, 8, strconv.ErrRange},
+	{uint64(MaxUint16) + 1, MaxUint64, 16, strconv.ErrRange},
+	{uint64(MaxUint32) + 1, MaxUint64, 32, strconv.ErrRange},
 
-	{int8(math.MinInt8), 0, 64, strconv.ErrRange},
-	{int16(math.MinInt16), 0, 64, strconv.ErrRange},
-	{int32(math.MinInt32), 0, 64, strconv.ErrRange},
-	{int64(math.MinInt64), 0, 64, strconv.ErrRange},
+	{int8(MinInt8), 0, 64, strconv.ErrRange},
+	{int16(MinInt16), 0, 64, strconv.ErrRange},
+	{int32(MinInt32), 0, 64, strconv.ErrRange},
+	{int64(MinInt64), 0, 64, strconv.ErrRange},
 
-	{"18446744073709551620", math.MaxUint64, 0, strconv.ErrRange},
+	{"18446744073709551620", MaxUint64, 0, strconv.ErrRange},
 	{"-1", 0, 0, strconv.ErrSyntax},
 
 	{new(int), 0, 0, errors.New("fixme")},
