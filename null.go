@@ -31,7 +31,7 @@ func convertInt(value interface{}, bitSize int) (int64, error) {
 	cutoff := uint64(1 << uint(bitSize-1))
 
 	switch v := value.(type) {
-	// Likely/conformant cases
+	// Conformant types
 	case int64:
 		n = v
 	case string:
@@ -82,17 +82,92 @@ func convertInt(value interface{}, bitSize int) (int64, error) {
 		return n, err
 	}
 
-	neg := n < 0
-	if !neg && uint64(n) >= cutoff {
+	if n >= 0 && uint64(n) >= cutoff {
 		n = int64(cutoff - 1)
 		err = &strconv.NumError{"ParseInt", strconv.FormatInt(n, 10), strconv.ErrRange}
 	}
-	if neg && uint64(-n) > cutoff {
+	if n < 0 && uint64(-n) > cutoff {
 		n = -int64(cutoff)
 		err = &strconv.NumError{"ParseInt", strconv.FormatInt(n, 10), strconv.ErrRange}
 	}
 
 	return n, err
+}
+
+func convertUint(value interface{}, bitSize int) (uint64, error) {
+	const maxUint64 = (1<<64 - 1)
+
+	var n uint64
+	var err error
+
+	if bitSize == 0 {
+		bitSize = strconv.IntSize
+	}
+	cutoff := uint64(1<<uint(bitSize) - 1)
+
+	switch v := value.(type) {
+	// Conformant types
+	case int64:
+		if v < 0 {
+			goto ErrOverflow
+		}
+		n = uint64(v)
+	case string:
+		n, err = strconv.ParseUint(v, 10, bitSize)
+	case []byte:
+		n, err = parseUint(v, bitSize)
+
+	// Accept other numeric types
+	case uint:
+		n = uint64(v)
+	case uint8:
+		n = uint64(v)
+	case uint16:
+		n = uint64(v)
+	case uint32:
+		n = uint64(v)
+	case uint64:
+		n = v
+	case int:
+		if v < 0 {
+			goto ErrOverflow
+		}
+		n = uint64(v)
+	case int8:
+		if v < 0 {
+			goto ErrOverflow
+		}
+		n = uint64(v)
+	case int16:
+		if v < 0 {
+			goto ErrOverflow
+		}
+		n = uint64(v)
+	case int32:
+		if v < 0 {
+			goto ErrOverflow
+		}
+		n = uint64(v)
+	default:
+		err = fmt.Errorf("unsupported Scan, storing driver.Value type %T into type int64", value)
+	}
+
+	// TODO: Match sql.convertAssign error message
+	//
+	if err != nil {
+		// Special case for uint conversions
+		if err == strconv.ErrRange {
+			err = &strconv.NumError{"ParseInt", strconv.FormatUint(n, 10), strconv.ErrRange}
+		}
+	} else if n > cutoff {
+		n = maxUint64
+		err = &strconv.NumError{"ParseInt", strconv.FormatUint(n, 10), strconv.ErrRange}
+	}
+	return n, err
+
+ErrOverflow:
+
+	return 0, &strconv.NumError{"ParseInt", strconv.FormatUint(n, 10), strconv.ErrRange}
 }
 
 // A Int is a nullable int that can be scanned into and from databases,
