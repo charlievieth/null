@@ -5,6 +5,11 @@ import (
 	"strconv"
 )
 
+const (
+	maxUint64 = (1<<64 - 1)
+	maxInt64  = 1<<63 - 1
+)
+
 func parseInt(s []byte, bitSize int) (int64, error) {
 	if bitSize == 0 {
 		bitSize = int(strconv.IntSize)
@@ -46,12 +51,9 @@ func parseInt(s []byte, bitSize int) (int64, error) {
 }
 
 func parseUint(s []byte, bitSize int) (uint64, error) {
-	const maxUint64 = (1<<64 - 1)
-
 	if len(s) < 1 {
 		return 0, &strconv.NumError{"ParseUint", string(s), strconv.ErrSyntax}
 	}
-
 	if bitSize == 0 {
 		bitSize = int(strconv.IntSize)
 	}
@@ -91,11 +93,8 @@ Error:
 }
 
 func convertInt(value interface{}, bitSize int) (int64, error) {
-	const maxInt64 = 1<<63 - 1
-
 	var n int64
 	var err error
-
 	if bitSize == 0 {
 		bitSize = strconv.IntSize
 	}
@@ -166,11 +165,8 @@ func convertInt(value interface{}, bitSize int) (int64, error) {
 }
 
 func convertUint(value interface{}, bitSize int) (uint64, error) {
-	const maxUint64 = (1<<64 - 1)
-
 	var n uint64
 	var err error
-
 	if bitSize == 0 {
 		bitSize = strconv.IntSize
 	}
