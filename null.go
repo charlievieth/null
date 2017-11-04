@@ -61,10 +61,10 @@ func (i *Int) Scan(value interface{}) error {
 
 // Value, returns the database driver value of Int i.
 func (i Int) Value() (driver.Value, error) {
-	if !i.Valid {
-		return nil, nil
+	if i.Valid {
+		return int64(i.Int), nil
 	}
-	return int64(i.Int), nil
+	return nil, nil
 }
 
 // MarshalJSON, marshals Int i into JSON.
@@ -134,10 +134,10 @@ func (f *Float64) Scan(value interface{}) error {
 
 // Value, returns the database driver value of Float64 f.
 func (f Float64) Value() (driver.Value, error) {
-	if !f.Valid {
-		return nil, nil
+	if f.Valid {
+		return f.Float64, nil
 	}
-	return f.Float64, nil
+	return nil, nil
 }
 
 // MarshalJSON, marshals Float64 f into JSON.
@@ -204,18 +204,18 @@ func (s *String) Scan(value interface{}) error {
 
 // Value, returns the database driver value of String s.
 func (s String) Value() (driver.Value, error) {
-	if !s.Valid {
-		return nil, nil
+	if s.Valid {
+		return s.String, nil
 	}
-	return s.String, nil
+	return nil, nil
 }
 
 // MarshalJSON, marshals String s into JSON.
 func (s String) MarshalJSON() ([]byte, error) {
-	if !s.Valid {
-		return nullLiteral, nil
+	if s.Valid {
+		return marshalString(s.String)
 	}
-	return marshalString(s.String)
+	return nullLiteral, nil
 }
 
 // UnmarshalJSON, unmarshals JSON data into String s.
@@ -274,21 +274,21 @@ func (b *Bool) Scan(value interface{}) error {
 
 // Value, returns the database driver value of Bool b.
 func (b Bool) Value() (driver.Value, error) {
-	if !b.Valid {
-		return nil, nil
+	if b.Valid {
+		return b.Bool, nil
 	}
-	return b.Bool, nil
+	return nil, nil
 }
 
 // MarshalJSON, marshals Bool b into JSON.
 func (b Bool) MarshalJSON() ([]byte, error) {
-	if !b.Valid {
-		return nullLiteral, nil
+	if b.Valid {
+		if b.Bool {
+			return []byte(`"true"`), nil
+		}
+		return []byte(`"false"`), nil
 	}
-	if b.Bool {
-		return []byte(`"true"`), nil
-	}
-	return []byte(`"false"`), nil
+	return nullLiteral, nil
 }
 
 // UnmarshalJSON, unmarshals JSON data into Bool b.
@@ -354,19 +354,19 @@ func (t *Time) Scan(value interface{}) error {
 
 // Value, returns the database driver value of Time t.
 func (t Time) Value() (driver.Value, error) {
-	if !t.Valid {
-		return nil, nil
+	if t.Valid {
+		return t.Time, nil
 	}
-	return t.Time, nil
+	return nil, nil
 }
 
 // MarshalJSON implements the json.Marshaler interface. The time is a quoted
 // string in RFC 3339 format, with sub-second precision added if present.
 func (t Time) MarshalJSON() ([]byte, error) {
-	if !t.Valid {
-		return nullLiteral, nil
+	if t.Valid {
+		return t.Time.MarshalJSON()
 	}
-	return t.Time.MarshalJSON()
+	return nullLiteral, nil
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface. The time is expected
