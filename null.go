@@ -69,10 +69,10 @@ func (i Int) Value() (driver.Value, error) {
 
 // MarshalJSON, marshals Int i into JSON.
 func (i Int) MarshalJSON() ([]byte, error) {
-	if !i.Valid {
-		return nullLiteral, nil
+	if i.Valid {
+		return strconv.AppendInt(nil, int64(i.Int), 10), nil
 	}
-	return strconv.AppendInt([]byte{}, int64(i.Int), 10), nil
+	return nullLiteral, nil
 }
 
 // MarshalJSON, unmarshals JSON data into Int i.
@@ -142,10 +142,10 @@ func (f Float64) Value() (driver.Value, error) {
 
 // MarshalJSON, marshals Float64 f into JSON.
 func (f Float64) MarshalJSON() ([]byte, error) {
-	if !f.Valid {
-		return nullLiteral, nil
+	if f.Valid {
+		return strconv.AppendFloat(nil, f.Float64, 'g', -1, 64), nil
 	}
-	return []byte(strconv.FormatFloat(f.Float64, 'g', -1, 64)), nil
+	return nullLiteral, nil
 }
 
 // UnmarshalJSON, unmarshals JSON data into Flaot64 f.
