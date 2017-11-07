@@ -4,11 +4,6 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
-	"fmt"
-	"log"
-	"math"
-	"regexp"
-	"strconv"
 	"testing"
 	"time"
 )
@@ -117,6 +112,26 @@ func TestScan(t *testing.T) {
 		}
 	}
 	{
+		i := float32(1)
+		n := new(Float32)
+		if err := n.Scan(i); err != nil {
+			t.Error(err)
+		}
+		if n.Float32 != i {
+			t.Error("Float32 Value: mismatch", n.Float32, i)
+		}
+		if !n.Valid {
+			t.Error("Float32 Value: expected valid")
+		}
+		n = new(Float32)
+		if err := n.Scan(nil); err != nil {
+			t.Error(err)
+		}
+		if n.Valid {
+			t.Error("Float32 Value: expected invalid")
+		}
+	}
+	{
 		i := string("1")
 		n := new(String)
 		if err := n.Scan(i); err != nil {
@@ -195,6 +210,25 @@ func TestValue(t *testing.T) {
 		}
 		if v != nil {
 			t.Error("Float64 Value: expected nil")
+		}
+	}
+	{
+		i := float32(1)
+		n := NewFloat32(i)
+		v, err := n.Value()
+		if err != nil {
+			t.Error(err)
+		}
+		if v.(float64) != float64(i) {
+			t.Error("Float32 Value: mismatch")
+		}
+		n.Valid = false
+		v, err = n.Value()
+		if err != nil {
+			t.Error(err)
+		}
+		if v != nil {
+			t.Error("Float32 Value: expected nil")
 		}
 	}
 	{
@@ -286,6 +320,29 @@ func TestMarshal(t *testing.T) {
 		}
 		if !bytes.Equal(a, null) {
 			t.Error("Float64 Marshal: null mismatch")
+		}
+	}
+	{
+		i := float32(1)
+		n := NewFloat32(i)
+		a, err := n.MarshalJSON()
+		if err != nil {
+			t.Error(err)
+		}
+		b, err := json.Marshal(i)
+		if err != nil {
+			t.Error(err)
+		}
+		if !bytes.Equal(a, b) {
+			t.Error("Float32 Marshal: mismatch")
+		}
+		n.Valid = false
+		a, err = n.MarshalJSON()
+		if err != nil {
+			t.Error(err)
+		}
+		if !bytes.Equal(a, null) {
+			t.Error("Float32 Marshal: null mismatch")
 		}
 	}
 	{
@@ -382,6 +439,27 @@ func TestUnmarshal(t *testing.T) {
 		}
 		if n.Valid {
 			t.Error("Float64 Unmarshal: expected invalid")
+		}
+	}
+	{
+		i := float32(1)
+		n := new(Float32)
+		b, err := json.Marshal(i)
+		if err != nil {
+			t.Error(err)
+		}
+		if err := n.UnmarshalJSON(b); err != nil {
+			t.Error(err)
+		}
+		if n.Float32 != i || !n.Valid {
+			t.Error("Float32 Unmarshal: failed")
+		}
+		n = new(Float32)
+		if err := n.UnmarshalJSON(null); err != nil {
+			t.Error(err)
+		}
+		if n.Valid {
+			t.Error("Float32 Unmarshal: expected invalid")
 		}
 	}
 	{
@@ -482,112 +560,6 @@ func TestString(t *testing.T) {
 			t.Errorf("TestString: failed to coerce: %s", s)
 		}
 	}
-}
-
-var re = regexp.MustCompile
-
-// syntactic checks on form of marshaled floating point numbers.
-var badFloatREs = []*regexp.Regexp{
-	re(`p`),                     // no binary exponential notation
-	re(`^\+`),                   // no leading + sign
-	re(`^-?0[^.]`),              // no unnecessary leading zeros
-	re(`^-?\.`),                 // leading zero required before decimal point
-	re(`\.(e|$)`),               // no trailing decimal
-	re(`\.[0-9]+0(e|$)`),        // no trailing zero in fraction
-	re(`^-?(0|[0-9]{2,})\..*e`), // exponential notation must have normalized mantissa
-	re(`e[0-9]`),                // positive exponent must be signed
-	re(`e[+-]0`),                // exponent must not have leading zeros
-	re(`e-[1-6]$`),              // not tiny enough for exponential notation
-	re(`e+(.|1.|20)$`),          // not big enough for exponential notation
-	re(`^-?0\.0000000`),         // too tiny, should use exponential notation
-	re(`^-?[0-9]{22}`),          // too big, should use exponential notation
-	re(`[1-9][0-9]{16}[1-9]`),   // too many significant digits in integer
-	re(`[1-9][0-9.]{17}[1-9]`),  // too many significant digits in decimal
-	// below here for float32 only
-	re(`[1-9][0-9]{8}[1-9]`),  // too many significant digits in integer
-	re(`[1-9][0-9.]{9}[1-9]`), // too many significant digits in decimal
-}
-
-func TestMarshalFloat(t *testing.T) {
-	t.Parallel()
-	nfail := 0
-	test := func(f float64, bits int) {
-		// vf := interface{}(f)
-		vf := Float64{Valid: true, Float64: f}
-		if bits == 32 {
-			return // WARN
-			// f = float64(float32(f)) // round
-			// vf = float32(f)
-		}
-		bout, err := json.Marshal(vf)
-		if err != nil {
-			t.Errorf("Marshal(%T(%g)): %v", vf, vf, err)
-			nfail++
-			return
-		}
-		out := string(bout)
-
-		// result must convert back to the same float
-		g, err := strconv.ParseFloat(out, bits)
-		if err != nil {
-			t.Errorf("Marshal(%T(%g)) = %q, cannot parse back: %v", vf, vf, out, err)
-			nfail++
-			return
-		}
-		if f != g || fmt.Sprint(f) != fmt.Sprint(g) { // fmt.Sprint handles ±0
-			t.Errorf("Marshal(%T(%g)) = %q (is %g, not %g)", vf, vf, out, float32(g), vf)
-			nfail++
-			return
-		}
-
-		bad := badFloatREs
-		if bits == 64 {
-			bad = bad[:len(bad)-2]
-		}
-		for _, re := range bad {
-			if re.MatchString(out) {
-				t.Errorf("Marshal(%T(%g)) = %q, must not match /%s/", vf, vf, out, re)
-				nfail++
-				return
-			}
-		}
-	}
-
-	var (
-		bigger  = math.Inf(+1)
-		smaller = math.Inf(-1)
-	)
-
-	var digits = "1.2345678901234567890123"
-	for i := len(digits); i >= 2; i-- {
-		for exp := -30; exp <= 30; exp++ {
-			for _, sign := range "+-" {
-				for bits := 32; bits <= 64; bits += 32 {
-					s := fmt.Sprintf("%c%se%d", sign, digits[:i], exp)
-					f, err := strconv.ParseFloat(s, bits)
-					if err != nil {
-						log.Fatal(err)
-					}
-					next := math.Nextafter
-					if bits == 32 {
-						next = func(g, h float64) float64 {
-							return float64(math.Nextafter32(float32(g), float32(h)))
-						}
-					}
-					test(f, bits)
-					test(next(f, bigger), bits)
-					test(next(f, smaller), bits)
-					if nfail > 50 {
-						t.Fatalf("stopping test early")
-					}
-				}
-			}
-		}
-	}
-	test(0, 64)
-	test(math.Copysign(0, -1), 64)
-	test(0, 32)
-	test(math.Copysign(0, -1), 32)
 }
 
 // Scan

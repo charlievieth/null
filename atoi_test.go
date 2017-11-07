@@ -267,6 +267,10 @@ func formatNumber(v interface{}) (string, bool) {
 		return strconv.FormatUint(uint64(n), 10), true
 	case uint:
 		return strconv.FormatUint(uint64(n), 10), true
+	case float32:
+		return strconv.FormatFloat(float64(n), 'g', -1, 32), true
+	case float64:
+		return strconv.FormatFloat(n, 'g', -1, 64), true
 	}
 	return "", false
 }

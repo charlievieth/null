@@ -10,7 +10,6 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
-	"math"
 	"strconv"
 	"time"
 
@@ -127,10 +126,17 @@ func PtrFloat64(f *float64) Float64 {
 
 // Scan, scans a database value into Float f.
 func (f *Float64) Scan(value interface{}) error {
-	var n sql.NullFloat64
-	err := n.Scan(value)
-	f.Float64, f.Valid = n.Float64, n.Valid
-	return err
+	if value == nil {
+		f.Float64, f.Valid = 0, false
+		return nil
+	}
+	ff, err := convertFloat(value, 64)
+	if err != nil {
+		f.Float64, f.Valid = 0, false
+		return err
+	}
+	f.Float64, f.Valid = ff, err == nil
+	return nil
 }
 
 // Value, returns the database driver value of Float64 f.
@@ -139,41 +145,6 @@ func (f Float64) Value() (driver.Value, error) {
 		return f.Float64, nil
 	}
 	return nil, nil
-}
-
-func encodeFloat(f float64, bits int) ([]byte, error) {
-	if math.IsInf(f, 0) || math.IsNaN(f) {
-		// TODO: panic
-		//
-		// e.error(&json.UnsupportedValueError{v, strconv.FormatFloat(f, 'g', -1, int(bits))})
-	}
-
-	// Convert as if by ES6 number to string conversion.
-	// This matches most other JSON generators.
-	// See golang.org/issue/6384 and golang.org/issue/14135.
-	// Like fmt %g, but the exponent cutoffs are different
-	// and exponents themselves are not padded to two digits.
-	abs := math.Abs(f)
-	fmt := byte('f')
-	// Note: Must use float32 comparisons for underlying float32 value to get precise cutoffs right.
-	if abs != 0 {
-		if bits == 64 && (abs < 1e-6 || abs >= 1e21) || bits == 32 && (float32(abs) < 1e-6 || float32(abs) >= 1e21) {
-			fmt = 'e'
-		}
-	}
-	b := strconv.AppendFloat(nil, f, fmt, -1, int(bits))
-	if fmt == 'e' {
-		// clean up e-09 to e-9
-		n := len(b)
-		if n >= 4 && b[n-4] == 'e' && b[n-3] == '-' && b[n-2] == '0' {
-			b[n-2] = b[n-1]
-			b = b[:n-1]
-		}
-	}
-
-	// TODO: support quoting floats
-
-	return b, nil
 }
 
 // MarshalJSON, marshals Float64 f into JSON.
@@ -201,6 +172,85 @@ func (f Float64) Ptr() *float64 {
 		return nil
 	}
 	n := f.Float64
+	return &n
+}
+
+// A Float32 is a nullable float32 that can be scanned into and from databases,
+// and marshaled into and from JSON.
+type Float32 struct {
+	Float32 float32
+	Valid   bool
+}
+
+// NewFloat32, returns a new valid Float32 with value f.
+func NewFloat32(f float32) Float32 {
+	return Float32{
+		Float32: f,
+		Valid:   true,
+	}
+}
+
+// PtrFloat32, returns a new Float32 from a pointer.
+func PtrFloat32(f *float32) Float32 {
+	if f == nil {
+		return Float32{Valid: false}
+	}
+	return Float32{
+		Float32: *f,
+		Valid:   true,
+	}
+}
+
+// Scan, scans a database value into Float f.
+func (f *Float32) Scan(value interface{}) error {
+	if value == nil {
+		f.Float32, f.Valid = 0, false
+		return nil
+	}
+	ff, err := convertFloat(value, 32)
+	if err != nil {
+		f.Float32, f.Valid = 0, false
+		return err
+	}
+	f.Float32, f.Valid = float32(ff), err == nil
+	return nil
+}
+
+// Value, returns the database driver value of Float32 f.
+func (f Float32) Value() (driver.Value, error) {
+	if f.Valid {
+		return float64(f.Float32), nil
+	}
+	return nil, nil
+}
+
+// MarshalJSON, marshals Float32 f into JSON.
+func (f Float32) MarshalJSON() ([]byte, error) {
+	if f.Valid {
+		return encodeFloat(float64(f.Float32), 32)
+	}
+	return nullLiteral, nil
+}
+
+// UnmarshalJSON, unmarshals JSON data into Flaot64 f.
+func (f *Float32) UnmarshalJSON(data []byte) (err error) {
+	if null(data) {
+		f.Float32, f.Valid = 0, false
+		return nil
+	}
+	var ff float64
+	ff, err = strconv.ParseFloat(string(unquote(data)), 64)
+	f.Valid = (err == nil)
+	f.Float32 = float32(ff)
+	return err
+}
+
+// Ptr, returns the value of Float32 f as a pointer.
+func (f Float32) Ptr() *float32 {
+	if !f.Valid {
+		return nil
+	}
+	n := f.Float32
 	return &n
 }
 
