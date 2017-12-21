@@ -6,7 +6,6 @@ package null
 // values.
 
 import (
-	"bytes"
 	"database/sql"
 	"database/sql/driver"
 	"errors"
@@ -76,7 +75,7 @@ func (i Int) MarshalJSON() ([]byte, error) {
 
 // MarshalJSON, unmarshals JSON data into Int i.
 func (i *Int) UnmarshalJSON(data []byte) (err error) {
-	if null(data) {
+	if string(data) == "null" {
 		i.Int, i.Valid = 0, false
 		return nil
 	}
@@ -156,7 +155,7 @@ func (f Float64) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON, unmarshals JSON data into Flaot64 f.
 func (f *Float64) UnmarshalJSON(data []byte) (err error) {
-	if null(data) {
+	if string(data) == "null" {
 		f.Float64, f.Valid = 0, false
 		return nil
 	}
@@ -233,7 +232,7 @@ func (f Float32) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON, unmarshals JSON data into Flaot64 f.
 func (f *Float32) UnmarshalJSON(data []byte) (err error) {
-	if null(data) {
+	if string(data) == "null" {
 		f.Float32, f.Valid = 0, false
 		return nil
 	}
@@ -280,10 +279,21 @@ func PtrString(s *string) String {
 }
 
 // Scan, scans value into String s.
-func (s *String) Scan(value interface{}) error {
-	var n sql.NullString
-	err := n.Scan(value)
-	s.String, s.Valid = n.String, n.Valid
+func (s *String) Scan(value interface{}) (err error) {
+	if value == nil {
+		s.String, s.Valid = "", false
+		return nil
+	}
+	switch v := value.(type) {
+	case string:
+		s.String, s.Valid = v, true
+	case []byte:
+		s.String, s.Valid = string(v), true
+	default:
+		var n sql.NullString
+		err = n.Scan(value)
+		s.String, s.Valid = n.String, n.Valid
+	}
 	return err
 }
 
@@ -305,7 +315,7 @@ func (s String) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON, unmarshals JSON data into String s.
 func (s *String) UnmarshalJSON(data []byte) (err error) {
-	if null(data) {
+	if string(data) == "null" {
 		s.String, s.Valid = "", false
 		return nil
 	}
@@ -378,7 +388,7 @@ func (b Bool) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON, unmarshals JSON data into Bool b.
 func (b *Bool) UnmarshalJSON(data []byte) (err error) {
-	if null(data) {
+	if string(data) == "null" {
 		b.Bool, b.Valid = false, false
 		return nil
 	}
@@ -485,7 +495,7 @@ func (t Time) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements the json.Unmarshaler interface. The time is expected
 // to be a quoted string in RFC 3339 format.
 func (t *Time) UnmarshalJSON(data []byte) (err error) {
-	if null(data) {
+	if string(data) == "null" {
 		t.Time, t.Valid = time.Time{}, false
 		return nil
 	}
@@ -506,11 +516,6 @@ func (t Time) Ptr() *time.Time {
 // Now, sets t's time to now.
 func (t *Time) Now() {
 	t.Time, t.Valid = time.Now(), true
-}
-
-// null, returns if data is a null JSON value.
-func null(data []byte) bool {
-	return bytes.Equal([]byte("null"), data)
 }
 
 // unquote, returns the form of JSON value b, for use by Int, Float64 and Bool.
