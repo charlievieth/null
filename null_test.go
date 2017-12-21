@@ -622,6 +622,14 @@ func BenchmarkTimeScan(b *testing.B) {
 	}
 }
 
+func BenchmarkTimeScanString(b *testing.B) {
+	var v Time
+	s := time.Now().Format(TimeLayout)
+	for i := 0; i < b.N; i++ {
+		v.Scan(s)
+	}
+}
+
 // MarshalJSON
 
 func BenchmarkIntMarshalJSON(b *testing.B) {

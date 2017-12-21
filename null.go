@@ -10,10 +10,9 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
-
-	"github.com/go-sql-driver/mysql"
 )
 
 var nullLiteral = []byte("null")
@@ -431,11 +430,39 @@ func PtrTime(t *time.Time) Time {
 }
 
 // Scan, scans a database value into Time t.
-func (t *Time) Scan(value interface{}) error {
-	var n mysql.NullTime
-	err := n.Scan(value)
-	t.Time, t.Valid = n.Time, n.Valid
-	return err
+func (t *Time) Scan(value interface{}) (err error) {
+	if value == nil {
+		t.Time, t.Valid = time.Time{}, false
+		return
+	}
+	switch v := value.(type) {
+	case time.Time:
+		t.Time, t.Valid = v, true
+	case []byte:
+		t.Time, err = parseTime(string(v))
+	case string:
+		t.Time, err = parseTime(v)
+	default:
+		err = fmt.Errorf("Can't convert %T to time.Time", value)
+	}
+	t.Valid = (err == nil)
+	return
+}
+
+// Time layout used for MySQL and SQLite
+const TimeLayout = "2006-01-02 15:04:05.999999"
+
+func parseTime(str string) (t time.Time, err error) {
+	const base = "0000-00-00 00:00:00.0000000"
+	switch len(str) {
+	case 10, 19, 21, 22, 23, 24, 25, 26:
+		if str != base[:len(str)] {
+			t, err = time.Parse(TimeLayout[:len(str)], str)
+		}
+	default:
+		err = fmt.Errorf("invalid time string: %s", str)
+	}
+	return
 }
 
 // Value, returns the database driver value of Time t.
